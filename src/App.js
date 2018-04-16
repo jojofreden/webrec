@@ -1,16 +1,16 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import ReactDOM from 'react-dom';
+import {playProject, pauseProject, stopProject, recordProject, selectTrack, finishRecord} from './actions'
 
 const nrTracks = 10
 
 const colors = ['#001f3f', '#0074D9', '#7FDBFF', '#39CCCC', '#3D9970', '#2ECC40', '#01FF70', '#FFDC00', '#FF851B', '#FF4136']
 
-
-class Recorder extends Component {
-  constructor(props) { 
-    super(props);
-  }
+class Recorder {
+  constructor(store) {
+    this.store = store;
+  };
 
   stop () {
     this.mediaRecorder.stop()
@@ -33,32 +33,25 @@ class Recorder extends Component {
     if (navigator.getUserMedia && window.MediaRecorder) {
       const constraints = {audio: true}
       this.chunks = []
-      const { blobOpts, onStop, onError, mediaOpts, onPause, onResume, onStart, gotStream } = this.props
 
       const onErr = err => {
         console.warn(err)
-        if (onError) onError(err)
       }
 
       const onSuccess = stream => {
-        this.mediaRecorder = new window.MediaRecorder(stream, mediaOpts || {})
+        this.mediaRecorder = new window.MediaRecorder(stream, {})
 
         this.mediaRecorder.ondataavailable = e => {
           this.chunks.push(e.data)
-        }
 
-        this.mediaRecorder.onstop = e => {
-          const blob = new window.Blob(this.chunks, blobOpts || {type: 'audio/wav'})
-          this.chunks = []
-          onStop(blob)
+          if (!this.store.getState().recording) {
+            var blob = new window.Blob(this.chunks, {type: 'audio/wav'})
+            this.chunks = []
+            this.store.dispatch(finishRecord(blob))
+          }
         }
 
         this.mediaRecorder.onerror = onErr
-        if (onPause) this.mediaRecorder.onpause = onPause
-        if (onResume) this.mediaRecorder.onresume = onResume
-        if (onStart) this.mediaRecorder.onstart = onStart
-        this.stream = stream
-        if (gotStream) gotStream(stream)
         this.mediaRecorder.start()
       }
       navigator.getUserMedia(constraints, onSuccess, onErr)
@@ -76,15 +69,43 @@ class Recorder extends Component {
   render() {
     return false;
   }
-
 }
-
 
 class Player extends Component { 
   constructor(props) {
     super(props);
-    this.state = {playerRunning: false}
-  }
+    this.store = props.store;
+    this.recorder = new Recorder(props.store)
+  };
+
+  handlePlayButtonClick = () => {
+    this.store.dispatch(playProject())
+    if (this.store.getState().recordedBlob != null) {
+      const audioUrl = URL.createObjectURL(this.store.getState().recordedBlob);
+      const audio = new Audio(audioUrl);
+      audio.play();
+    }
+  };
+
+  handlePauseButtonClick = () => {
+    if (this.store.getState().recording) {
+      this.recorder.pause()
+    }
+
+    this.store.dispatch(pauseProject())
+  };
+
+  handleRecordStartButtonClick = () => {
+    this.store.dispatch(recordProject())
+    this.recorder.start()
+  };
+
+  handleStopButtonClick = () => {
+    if (this.store.getState().recording) {
+      this.recorder.stop()
+    }
+    this.store.dispatch(stopProject())
+  };
 
   render() {
     const playerStyle = {
@@ -131,18 +152,18 @@ class Player extends Component {
     };
 
     var playPauseStyle = playButtonStyle
-    var playPauseHandler = this.props.handlePlayButtonClick
+    var playPauseHandler = this.handlePlayButtonClick
 
-    if (this.props.playerRunning) {
+    if (this.store.getState().playerRunning) {
       playPauseStyle = pauseButtonStyle
-      playPauseHandler = this.props.handlePauseButtonClick
+      playPauseHandler = this.handlePauseButtonClick
     }
 
-    var recordHandler = this.props.handleRecordStartButtonClick
+    var recordHandler = this.handleRecordStartButtonClick
     var recordStyle = recordButtonStyle
 
-    if (this.props.recording) {
-       recordHandler = this.props.handleRecordStopButtonClick
+    if (this.store.getState().recording) {
+       recordHandler = this.handleStopButtonClick
        recordStyle = recordingButtonStyle
     } 
 
@@ -158,9 +179,9 @@ class Player extends Component {
 class ProgressBar extends Component {
   constructor(props) {
     super(props);
+    this.store = props.store
     this.state = {currentOffset: 0}
-    this.updateProgressBar=this.updateProgressBar.bind(this);
-  }
+  };
 
   render() { 
     const progressBarStyle = {
@@ -172,13 +193,13 @@ class ProgressBar extends Component {
       backgroundColor: 'black',
     }
     return <div style={progressBarStyle} />
-  }
+  };
 
-  updateProgressBar() {
-    if (this.props.playerRunning) {
+  updateProgressBar = () => {
+    if (this.store.getState().playerRunning) {
       this.setState({currentOffset: (this.state.currentOffset+1)%1000});
     }
-  }
+  };
 
   componentDidMount() {
     this.setState({currentOffset: 0});
@@ -186,34 +207,27 @@ class ProgressBar extends Component {
     this.setState({
       timer,
     });
-  }
+  };
 }
 
 class Track extends Component { 
   constructor(props) {
     super(props);
-    this.state = {
-      width: props.width,
-      position: props.position,
-      colorNumber: props.colorNumber,
-      trackId: props.trackId,
-    };
-    this.select = this.select.bind(this);
-    this.trackFocused = this.trackFocused.bind(this);
-  }
+    this.store = props.store;
+    this.width = props.width;
+    this.position = props.position;
+    this.colorNumber = props.colorNumber;
+    this.trackId = props.trackId;
+  };
 
-  select() {
-    this.setState({selected: true})
-  }
-
-  trackFocused() {
-      this.props.trackFocusHandler(this.props.trackId)
-  }
+  trackFocused = (trackId) => {
+    this.store.dispatch(selectTrack(trackId))
+  };
 
   render() {
     var borderWidth = 'thin';
 
-    if (this.state.selected) {
+    if (this.store.getState().focusedTrackId == this.trackId) {
       borderWidth = 'thick';
     }
 
@@ -221,9 +235,9 @@ class Track extends Component {
       position: 'absolute',
       top: '200px',
       bottom: '0px',
-      left: this.state.position + '%',
-      width: this.state.width + '%',
-      backgroundColor: colors[this.state.colorNumber],
+      left: this.position + '%',
+      width: this.width + '%',
+      backgroundColor: colors[this.colorNumber],
       height: '100%',
       borderWidth:  borderWidth,
     };
@@ -238,54 +252,8 @@ class Track extends Component {
 class App extends Component {
   constructor(props) {
     super(props);
+    this.store = this.props.store;
     this._tracks = new Map()
-    this.state = {
-      playerRunning: false,
-      recording: false,
-      audioTmp: null,
-      tracks: {},
-    }
-    this.handlePlayButtonClick = this.handlePlayButtonClick.bind(this);
-    this.handlePauseButtonClick = this.handlePauseButtonClick.bind(this);
-    this.handleRecordStartButtonClick = this.handleRecordStartButtonClick.bind(this);
-    this.handleRecordStopButtonClick = this.handleRecordStopButtonClick.bind(this);
-    this.handleRecordingFinished = this.handleRecordingFinished.bind(this);
-    this.trackFocusHandler = this.trackFocusHandler.bind(this);
-  }
-
-  handlePlayButtonClick() {
-    this.setState({playerRunning: true})
-    const audioUrl = URL.createObjectURL(this.state.audioTmp);
-    const audio = new Audio(audioUrl);
-    audio.play();
-  };
-
-  handlePauseButtonClick() {
-    this.setState({playerRunning: false})
-  };
-
-  handleRecordStartButtonClick() {
-    this._recorder.start()
-    this.setState({recording: true})
-    this.setState({playerRunning: true})
-  };
-
-  handleRecordStopButtonClick() {
-    this._recorder.stop()
-    this.setState({recording: false})
-    this.setState({playerRunning: false})
-  };
-
-  handleRecordingFinished(blob) {
-    this.setState({audioTmp: blob})
-  }
-
-  trackFocusHandler(trackId) {
-    this.setState({selectedTrack: trackId})
-    console.log(trackId)
-    console.log(this._tracks)
-    console.log(this._tracks.get(trackId))
-    //this._tracks[trackId].select()
   }
 
   render() {
@@ -296,9 +264,8 @@ class App extends Component {
     for (var i = 0; i < nrTracks; i++) {
       var width= 100/nrTracks
       tracks.push(<Track 
-        ref={(track) => {this._tracks.set(i, track)}}
+        store={this.store} 
         trackId={i} 
-        trackFocusHandler={this.trackFocusHandler} 
         width={width} 
         position={currentPos} 
         colorNumber={i%colors.length}/>);
@@ -307,17 +274,9 @@ class App extends Component {
 
     return (
 	   <div className="App" id="app" style={appStyle}>	  
-        <Recorder ref={(recorder) => { this._recorder = recorder; }} onStop={this.handleRecordingFinished} />
-        <Player 
-          handlePlayButtonClick={this.handlePlayButtonClick} 
-          handlePauseButtonClick={this.handlePauseButtonClick} 
-          handleRecordStartButtonClick={this.handleRecordStartButtonClick}
-          handleRecordStopButtonClick={this.handleRecordStopButtonClick}
-          playerRunning={this.state.playerRunning} 
-          recording={this.state.recording}
-        />
+        <Player store={this.store} />
         {tracks}
-        <ProgressBar playerRunning={this.state.playerRunning} />
+        <ProgressBar store={this.store} />
 	   </div>
     );
   }
