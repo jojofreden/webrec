@@ -2,8 +2,12 @@ const initialState = {
   playerRunning: false,
   recording: false,
   progressBarOffset: 0,
-  focusedTrackId: -1,
-  recordedBlob: null,
+  focusedTrackId: 0,
+  recordingsByTrackId: {},
+  progressBarDragging: false,
+  topOffset: 70,
+  msPerPixel: 15,
+  currentStartRecord: -1,
 }
 
 export default (state = initialState, action) => {
@@ -30,6 +34,7 @@ export default (state = initialState, action) => {
       return Object.assign({}, state, {
         recording: true,
         playerRunning: true,
+        currentStartRecord: state.progressBarOffset * state.msPerPixel,
       })
     case 'SELECT_TRACK':
       console.log("Track selected")
@@ -38,8 +43,21 @@ export default (state = initialState, action) => {
       })
     case 'FINISH_RECORD':
       console.log("Recording finished")
+      const recordingsByTrackId = state.recordingsByTrackId
+      if (recordingsByTrackId[state.focusedTrackId] == null) {
+        recordingsByTrackId[state.focusedTrackId] = []
+      }
+      recordingsByTrackId[state.focusedTrackId].push(action.value)
       return Object.assign({}, state, {
-        recordedBlob: action.value,
+        recordingsByTrackId: recordingsByTrackId,
+      })
+    case 'PROGRESSBAR_MOVE':
+      return Object.assign({}, state, {
+        progressBarOffset: action.value,
+      })
+    case 'PROGRESSBAR_DRAG':
+      return Object.assign({}, state, {
+        progressBarDragging: action.value,
       })
     default:
       return state

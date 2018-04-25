@@ -30,3 +30,15 @@ export const finishRecord = (value) => {
     value,
   }
 }
+export const progressBarMove = (value) => {
+  return {
+    type: 'PROGRESSBAR_MOVE',
+    value,
+  }
+}
+export const progressBarDrag = (value) => {
+  return {
+    type: 'PROGRESSBAR_DRAG',
+    value,
+  }
+}
