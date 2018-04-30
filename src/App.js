@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 import ReactDOM from 'react-dom';
 import {playProject, pauseProject, stopProject, recordProject, selectTrack, finishRecord, progressBarMove, progressBarDrag} from './actions'
 
-const nrTracks = 5
+const nrTracks = 10
 
 const colors = ['#4c626e', '#0074D9', '#7FDBFF', '#39CCCC', '#3D9970', '#2ECC40', '#01FF70', '#FFDC00', '#FF851B', '#FF4136']
 
@@ -15,21 +15,48 @@ class Recording {
     this.audio = audio
   }
 
-  static findRecordingByTime(recordings, time) {
-    for (var i = 0; i < recordings.length; i++) {
-      var recording = recordings[i]
-      if (recording.start <= time && recording.end >= time) {
-        return recording
+  static findRecordingsByTime(trackIds, recordingsByTrackId, time) {
+    var resRecordings = []
+    for (var i = 0; i < trackIds.length; i++) {
+      var recordings = recordingsByTrackId[trackIds[i]]
+      if (recordings) {
+        for (var j = 0; j < recordings.length; j++) {
+          var recording = recordings[j]
+          if (recording.start <= time && recording.end >= time) {
+            resRecordings.push(recording)
+          }
+        }
       }
     }
+    return resRecordings
   }
 }
-
 
 class Recorder {
   constructor(store) {
     this.store = store;
   };
+
+  startRecording = (stream) => {
+    this.mediaRecorder = new window.MediaRecorder(stream, {})
+    this.mediaRecorder.ondataavailable = e => {
+      this.chunks.push(e.data)
+      const state = this.store.getState()
+      if (!state.recording) {
+        var blob = new window.Blob(this.chunks, {type: 'audio/wav'})
+        this.chunks = []
+        const audioUrl = URL.createObjectURL(blob);
+        const audio = new Audio(audioUrl);
+        var recording = new Recording(
+          state.currentStartRecord, 
+          state.progressBarOffset * state.msPerPixel, 
+          audio,
+        )
+        this.store.dispatch(finishRecord(recording))
+      }
+    }
+    this.mediaRecorder.start()
+  }
 
   stop () {
     this.mediaRecorder.stop()
@@ -44,52 +71,9 @@ class Recorder {
   }
 
   start () {
-    navigator.getUserMedia = (navigator.getUserMedia ||
-                              navigator.mozGetUserMedia ||
-                              navigator.msGetUserMedia ||
-                              navigator.webkitGetUserMedia)
-
-    if (navigator.getUserMedia && window.MediaRecorder) {
-      const constraints = {audio: true}
-      this.chunks = []
-
-      const onErr = err => {
-        console.warn(err)
-      }
-
-      const onSuccess = stream => {
-        this.mediaRecorder = new window.MediaRecorder(stream, {})
-
-        this.mediaRecorder.ondataavailable = e => {
-          this.chunks.push(e.data)
-          const state = this.store.getState()
-          if (!state.recording) {
-            var blob = new window.Blob(this.chunks, {type: 'audio/wav'})
-            this.chunks = []
-            const audioUrl = URL.createObjectURL(blob);
-            const audio = new Audio(audioUrl);
-            var recording = new Recording(
-              state.currentStartRecord, 
-              state.progressBarOffset * state.msPerPixel, 
-              audio,
-            )
-            this.store.dispatch(finishRecord(recording))
-          }
-        }
-
-        this.mediaRecorder.onerror = onErr
-        this.mediaRecorder.start()
-      }
-      navigator.getUserMedia(constraints, onSuccess, onErr)
-    } else {
-      console.warn('Audio recording APIs not supported by this browser')
-      const { onMissingAPIs } = this.props
-      if (onMissingAPIs) {
-        onMissingAPIs(navigator.getUserMedia, window.MediaRecorder)
-      } else {
-        window.alert('Your browser doesn\'t support native microphone recording. For best results, we recommend using Google Chrome or Mozilla Firefox to use this site.')
-      }
-    }
+    this.chunks = []
+    navigator.mediaDevices.getUserMedia({audio: true})
+      .then((stream) => this.startRecording(stream))
   }
 
   render() {
@@ -107,16 +91,20 @@ class Player extends Component {
   handlePlayButtonClick = () => {
     this.store.dispatch(playProject())
     const state = this.store.getState()
-    var recordingsByTrackId = state.recordingsByTrackId
-    var focusedTrackId = state.focusedTrackId
-    var recordings = recordingsByTrackId[focusedTrackId]
-    console.log("Recordings: " + recordings)
+    var currentMsPostition = state.msPerPixel * state.progressBarOffset
+
+    var trackIds = []
+
+    for (var i = 0; i < nrTracks; i++) {
+      trackIds.push(i)
+    }
+
+    var recordings = Recording.findRecordingsByTime(trackIds, state.recordingsByTrackId, currentMsPostition)
+    console.log("NR RECORDINGS: " + recordings.length)
     if (recordings) {
       var currentMsPostition = state.msPerPixel * state.progressBarOffset
-      var recording = Recording.findRecordingByTime(recordings, currentMsPostition)
-
-      if (recording && focusedTrackId in recordingsByTrackId) {
-        var currentMsPostition = state.msPerPixel * state.progressBarOffset
+      for (var i = 0; i < recordings.length; i++) {
+        const recording = recordings[i]
         const audio = recording.audio
         audio.currentTime = currentMsPostition/1000
         audio.play()
@@ -294,6 +282,28 @@ class Track extends Component {
     this.store.dispatch(selectTrack(this.trackId))
   };
 
+  getRecordingSections = () => {
+    const state = this.store.getState()
+    const recordings = state.recordingsByTrackId[this.trackId]
+    var recordedSections = []
+    for (var i = 0; i < recordings.length; i++) {
+      const recording = recordings[i]
+      var recordedSectionStyle = {
+        position: 'absolute',
+        backgroundColor: '#000000',
+        opacity: 0.5,
+        left: '0px',
+        width: '100%',
+        borderStyle: 'none',
+        zIndex: 2,
+      }
+      recordedSectionStyle.top = ((recording.start/state.msPerPixel) | 0)
+      recordedSectionStyle.height = (((recording.end-recording.start)/state.msPerPixel) | 0)
+      recordedSections.push(<div style={recordedSectionStyle} />)
+    }
+    return recordedSections
+  }
+
   render() {
     var borderStyle = 'none';
     var zIndex = 0
@@ -303,9 +313,11 @@ class Track extends Component {
       var zIndex = 1
     }
 
+    const state = this.store.getState()
+
     const trackStyle = {
       position: 'absolute',
-      top: this.store.getState().topOffset + "px",
+      top: state.topOffset + "px",
       bottom: '0px',
       left: this.position + '%',
       width: this.width + '%',
@@ -315,8 +327,17 @@ class Track extends Component {
       zIndex: zIndex,
     };
 
+    const recordings = state.recordingsByTrackId[this.trackId]
+
+    var recordingSections = []
+    if (recordings) {
+      recordingSections = this.getRecordingSections()
+    }
+
     return (
-      <div style={trackStyle} onClick={this.trackFocused} />
+      <div style={trackStyle} onClick={this.trackFocused}>
+        {recordingSections}
+      </div>
     );
   }
 }
