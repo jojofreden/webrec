@@ -276,6 +276,15 @@ class Track extends Component {
     this.position = props.position;
     this.colorNumber = props.colorNumber;
     this.trackId = props.trackId;
+    this.recordedSectionStyle = {
+      position: 'absolute',
+      backgroundColor: '#000000',
+      opacity: 0.5,
+      left: '0px',
+      width: '100%',
+      borderStyle: 'none',
+      zIndex: 2,
+    }
   };
 
   trackFocused = () => {
@@ -288,32 +297,47 @@ class Track extends Component {
     var recordedSections = []
     for (var i = 0; i < recordings.length; i++) {
       const recording = recordings[i]
-      var recordedSectionStyle = {
-        position: 'absolute',
-        backgroundColor: '#000000',
-        opacity: 0.5,
-        left: '0px',
-        width: '100%',
-        borderStyle: 'none',
-        zIndex: 2,
-      }
-      recordedSectionStyle.top = ((recording.start/state.msPerPixel) | 0)
-      recordedSectionStyle.height = (((recording.end-recording.start)/state.msPerPixel) | 0)
-      recordedSections.push(<div style={recordedSectionStyle} />)
+
+      var cRecordedSectionStyle = Object.assign({}, this.recordedSectionStyle, {
+        top: ((recording.start/state.msPerPixel) | 0),
+        height: (((recording.end-recording.start)/state.msPerPixel) | 0)
+      })
+      
+      recordedSections.push(<div style={cRecordedSectionStyle} />)
     }
     return recordedSections
+  }
+
+  getCurrentRecordingSection = () => {
+    const state = this.store.getState()
+    var cRecordedSectionStyle = Object.assign({}, this.recordedSectionStyle, {
+      top: ((state.currentStartRecord/state.msPerPixel)),
+      height: ((state.progressBarOffset - (state.currentStartRecord/state.msPerPixel))),
+    })
+      
+    return <div style={cRecordedSectionStyle} />
   }
 
   render() {
     var borderStyle = 'none';
     var zIndex = 0
+    const state = this.store.getState()
+    var recordingSections = []
 
-    if (this.store.getState().focusedTrackId == this.trackId) {
+    if (state.focusedTrackId == this.trackId) {
       borderStyle = 'solid';
       var zIndex = 1
+
+      if (state.recording) {
+        recordingSections.push(this.getCurrentRecordingSection())
+      }
     }
 
-    const state = this.store.getState()
+    const recordings = state.recordingsByTrackId[this.trackId]
+
+    if (recordings) {
+      recordingSections = recordingSections.concat(this.getRecordingSections())
+    }
 
     const trackStyle = {
       position: 'absolute',
@@ -326,13 +350,6 @@ class Track extends Component {
       borderStyle:  borderStyle,
       zIndex: zIndex,
     };
-
-    const recordings = state.recordingsByTrackId[this.trackId]
-
-    var recordingSections = []
-    if (recordings) {
-      recordingSections = this.getRecordingSections()
-    }
 
     return (
       <div style={trackStyle} onClick={this.trackFocused}>
