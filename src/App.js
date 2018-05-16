@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import ReactDOM from 'react-dom';
-import {playProject, pauseProject, stopProject, recordProject, selectTrack, finishRecord, progressBarMove, progressBarDrag} from './actions'
+import {playProject, pauseProject, stopProject, recordProject, selectTrack, finishRecord, progressBarMove, progressBarDrag, settingClickedTrack} from './actions'
 
 const nrTracks = 10
 
@@ -283,12 +283,18 @@ class Track extends Component {
       left: '0px',
       width: '100%',
       borderStyle: 'none',
+      boxSizing: 'border-box',
       zIndex: 2,
     }
+    this.settingsHeight = 50
   };
 
   trackFocused = () => {
     this.store.dispatch(selectTrack(this.trackId))
+  };
+
+  settingsClicked = () => {
+    this.store.dispatch(settingClickedTrack(this.trackId))
   };
 
   getRecordingSections = () => {
@@ -299,7 +305,7 @@ class Track extends Component {
       const recording = recordings[i]
 
       var cRecordedSectionStyle = Object.assign({}, this.recordedSectionStyle, {
-        top: ((recording.start/state.msPerPixel) | 0),
+        top: ((recording.start/state.msPerPixel) + this.settingsHeight | 0),
         height: (((recording.end-recording.start)/state.msPerPixel) | 0)
       })
       
@@ -311,7 +317,7 @@ class Track extends Component {
   getCurrentRecordingSection = () => {
     const state = this.store.getState()
     var cRecordedSectionStyle = Object.assign({}, this.recordedSectionStyle, {
-      top: ((state.currentStartRecord/state.msPerPixel)),
+      top: ((state.currentStartRecord/state.msPerPixel) + this.settingsHeight),
       height: ((state.progressBarOffset - (state.currentStartRecord/state.msPerPixel))),
     })
       
@@ -341,18 +347,34 @@ class Track extends Component {
 
     const trackStyle = {
       position: 'absolute',
-      top: state.topOffset + "px",
+      top: state.topOffset - this.settingsHeight + "px",
       bottom: '0px',
       left: this.position + '%',
       width: this.width + '%',
       backgroundColor: colors[this.colorNumber],
       height: '100%',
       borderStyle:  borderStyle,
+      boxSizing: 'border-box',
       zIndex: zIndex,
     };
 
+    const muted = state.mutedTracks[this.trackId]
+
+    const settingsStyle = {
+      position: 'absolute',
+      width: '100%',
+      backgroundColor: muted ? 'red' : 'grey',
+      height: '50px',
+      boxSizing: 'border-box',
+      zIndex: zIndex,
+      borderBottomWidth:'10px',
+      borderBottomColor:'black',
+      borderBottomStyle: 'solid',
+    };
+
     return (
-      <div style={trackStyle} onClick={this.trackFocused}>
+      <div style={trackStyle} onClick={this.trackFocused} >
+        <div style={settingsStyle} onClick={this.settingsClicked} />
         {recordingSections}
       </div>
     );

@@ -42,3 +42,10 @@ export const progressBarDrag = (value) => {
     value,
   }
 }
+
+export const settingClickedTrack = (value) => {
+  return {
+    type: 'SETTING_CLICKED',
+    value,
+  }
+}

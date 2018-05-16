@@ -5,9 +5,10 @@ const initialState = {
   focusedTrackId: 0,
   recordingsByTrackId: {},
   progressBarDragging: false,
-  topOffset: 70,
+  topOffset: 150,
   msPerPixel: 15,
   currentStartRecord: -1,
+  mutedTracks: {},
 }
 
 export default (state = initialState, action) => {
@@ -40,6 +41,12 @@ export default (state = initialState, action) => {
       console.log("Track selected")
       return Object.assign({}, state, {
         focusedTrackId: action.value,
+      })
+    case 'SETTING_CLICKED':
+      console.log("Track setting clicked")
+      state.mutedTracks[action.value] = !state.mutedTracks[action.value]
+      return Object.assign({}, state, {
+        mutedTracks: state.mutedTracks
       })
     case 'FINISH_RECORD':
       console.log("Recording finished")
