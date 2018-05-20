@@ -9,10 +9,25 @@ const colors = ['#4c626e', '#0074D9', '#7FDBFF', '#39CCCC', '#3D9970', '#2ECC40'
 
 
 class Recording {
-  constructor(start, end, audio) {
+  constructor(start, end, audio, trackId) {
     this.start = start
     this.end = end
     this.audio = audio
+    this.trackId = trackId
+    var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    var source = audioCtx.createMediaElementSource(audio)
+    var gainNode = audioCtx.createGain();
+    source.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    this.gainNode = gainNode
+  }
+
+  mute () {
+    this.gainNode.gain.setValueAtTime(0, 0)
+  }
+
+  unmute () {
+    this.gainNode.gain.setValueAtTime(1, 0)
   }
 
   static findRecordingsByTime(trackIds, recordingsByTrackId, time) {
@@ -51,6 +66,7 @@ class Recorder {
           state.currentStartRecord, 
           state.progressBarOffset * state.msPerPixel, 
           audio,
+          state.focusedTrackId,
         )
         this.store.dispatch(finishRecord(recording))
       }
@@ -100,13 +116,18 @@ class Player extends Component {
     }
 
     var recordings = Recording.findRecordingsByTime(trackIds, state.recordingsByTrackId, currentMsPostition)
-    console.log("NR RECORDINGS: " + recordings.length)
     if (recordings) {
       var currentMsPostition = state.msPerPixel * state.progressBarOffset
       for (var i = 0; i < recordings.length; i++) {
         const recording = recordings[i]
         const audio = recording.audio
         audio.currentTime = currentMsPostition/1000
+
+        if (state.mutedTracks[recording.trackId]) {
+          recording.mute()
+        } else {
+          recording.unmute()
+        }
         audio.play()
       }
     }
