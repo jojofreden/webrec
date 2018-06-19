@@ -1,9 +1,7 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import ReactDOM from 'react-dom';
-import {playProject, pauseProject, stopProject, recordProject, selectTrack, finishRecord, progressBarMove, progressBarDrag, settingClickedTrack} from './actions'
-
-const nrTracks = 10
+import {playProject, pauseProject, stopProject, recordProject, selectTrack, finishRecord, progressBarMove, progressBarDrag, settingClickedTrack, trackResizeing, trackResized} from './actions'
 
 const colors = ['#4c626e', '#0074D9', '#7FDBFF', '#39CCCC', '#3D9970', '#2ECC40', '#01FF70', '#FFDC00', '#FF851B', '#FF4136']
 
@@ -111,7 +109,7 @@ class Player extends Component {
 
     var trackIds = []
 
-    for (var i = 0; i < nrTracks; i++) {
+    for (var i = 0; i < state.nrTracks; i++) {
       trackIds.push(i)
     }
 
@@ -157,7 +155,7 @@ class Player extends Component {
     const playerStyle = {
       position: 'absolute',
       top: '10px',
-      left: '150px',
+      left: '120px',
     };
 
     const playButtonStyle = {
@@ -166,36 +164,34 @@ class Player extends Component {
       outline: 'none',
       borderStyle: 'solid',
       boxSizing: 'border-box',
-      borderWidth: '17px 0px 17px 32px',
+      borderWidth: '10px 0px 10px 20px',
       borderColor: 'transparent transparent transparent #202020',
     };
 
     const pauseButtonStyle = {
       outline: 'none',
       borderStyle: 'solid',
-      height: '34px',
-      borderWidth: '0px 16px 0px 16px',
+      height: '20px',
+      borderWidth: '0px 9px 0px 9px',
       padding: '2px',
+      marginRight: '12px',
+      marginTop: '5px',
       borderColor: '#202020',
     };
 
     const recordButtonStyle = {
       outline: 'none',
       position: 'absolute',
-      height: '38px',
-      width: '38px',
+      height: '22px',
+      width: '22px',
       backgroundColor: '#202020',
       borderRadius: '50%',
+      marginTop: '4px',
     };
 
-    const recordingButtonStyle = {
-      outline: 'none',
-      position: 'absolute',
-      height: '38px',
-      width: '38px',
-      backgroundColor: '#FF0000',
-      borderRadius: '50%',
-    };
+    const recordingButtonStyle = Object.assign({}, recordButtonStyle, {
+        backgroundColor: '#FF0000',
+      })
 
     var playPauseStyle = playButtonStyle
     var playPauseHandler = this.handlePlayButtonClick
@@ -238,7 +234,7 @@ class ProgressBar extends Component {
       top: this.store.getState().topOffset + this.store.getState().progressBarOffset + 'px', 
       left: '0px',
       width: '100%',
-      height: '2px',
+      height: '4px',
       backgroundColor: 'black',
       zIndex: '2',
       cursor: 'ns-resize',
@@ -272,10 +268,11 @@ class Timer extends Component {
 
   render() {
     var timerStyle = {
+      userSelect: 'none',
       position: 'absolute',
       top: 10,
       left: 10,
-      fontSize: 30,
+      fontSize: 25,
     }
 
     const state = this.store.getState()
@@ -292,9 +289,8 @@ class Timer extends Component {
 class Track extends Component { 
   constructor(props) {
     super(props);
+    this.props = props
     this.store = props.store;
-    this.width = props.width;
-    this.position = props.position;
     this.colorNumber = props.colorNumber;
     this.trackId = props.trackId;
     this.recordedSectionStyle = {
@@ -307,7 +303,7 @@ class Track extends Component {
       boxSizing: 'border-box',
       zIndex: 2,
     }
-    this.settingsHeight = 50
+    this.settingsHeight = 20
   };
 
   trackFocused = () => {
@@ -345,14 +341,20 @@ class Track extends Component {
     return <div style={cRecordedSectionStyle} />
   }
 
+  mouseDown = (e) => {
+    this.store.dispatch(trackResizeing(this.trackId, e.clientX))
+  };
+
   render() {
     var borderStyle = 'none';
+    var borderWidth = 0
     var zIndex = 0
     const state = this.store.getState()
     var recordingSections = []
 
     if (state.focusedTrackId == this.trackId) {
       borderStyle = 'solid';
+      borderWidth = 1
       var zIndex = 1
 
       if (state.recording) {
@@ -370,11 +372,12 @@ class Track extends Component {
       position: 'absolute',
       top: state.topOffset - this.settingsHeight + "px",
       bottom: '0px',
-      left: this.position + '%',
-      width: this.width + '%',
+      left: this.props.position + '%',
+      width: state.trackWidthById[this.trackId] + '%',
       backgroundColor: colors[this.colorNumber],
       height: '100%',
       borderStyle:  borderStyle,
+      borderWidth: borderWidth,
       boxSizing: 'border-box',
       zIndex: zIndex,
     };
@@ -384,18 +387,17 @@ class Track extends Component {
     const settingsStyle = {
       position: 'absolute',
       width: '100%',
-      backgroundColor: muted ? 'red' : 'grey',
-      height: '50px',
+      backgroundColor: muted ? '#A9A9A9' : '#D3D3D3',
+      height: (20 - borderWidth) + 'px',
       boxSizing: 'border-box',
       zIndex: zIndex,
-      borderBottomWidth:'10px',
-      borderBottomColor:'black',
-      borderBottomStyle: 'solid',
     };
-
+    
     return (
-      <div style={trackStyle} onClick={this.trackFocused} >
-        <div style={settingsStyle} onClick={this.settingsClicked} />
+      <div style={trackStyle} onClick={this.trackFocused} onMouseDown={this.mouseDown}>
+        <div 
+            style={settingsStyle} 
+            onClick={this.settingsClicked} />
         {recordingSections}
       </div>
     );
@@ -415,18 +417,29 @@ class App extends Component {
   }
 
   mouseUpApp = (e) => { 
-    if (this.store.getState().progressBarDragging) {
+    const state = this.store.getState()
+    if (state.progressBarDragging) {
       this.store.dispatch(progressBarDrag(false))
+    }
+    if (state.trackResizingId != -1) { 
+      this.store.dispatch(trackResizeing(-1))
     }
   };
 
   mouseMoveApp = (e) => {
-    if (this.store.getState().progressBarDragging) { 
-      var state = this.store.getState()
+    const state = this.store.getState()
+
+    if (state.progressBarDragging) { 
       var prevY = state.topOffset + state.progressBarOffset
       var deltaY = prevY - e.clientY
 
       this.store.dispatch(progressBarMove(Math.max(0, state.progressBarOffset - deltaY)))
+    }
+    if (state.trackResizingId != -1) { 
+      var prevWidth = window.innerWidth * 0.01 * state.trackWidthById[state.trackResizingId]
+      var deltaX = state.trackResizeStartPx - e.clientX 
+      var movePerc = deltaX/window.innerWidth
+      this.store.dispatch(trackResized(movePerc))
     }
   }
 
@@ -434,16 +447,15 @@ class App extends Component {
     const appStyle = {}
     var tracks = []
     var currentPos = 0
+    const state = this.store.getState()
 
-    for (var i = 0; i < nrTracks; i++) {
-      var width= 100/nrTracks
+    for (var i = 0; i < state.nrTracks; i++) {
       tracks.push(<Track 
         store={this.store} 
         trackId={i} 
-        width={width} 
         position={currentPos} 
         colorNumber={i%colors.length}/>);
-      currentPos += width
+      currentPos += state.trackWidthById[i]
     }
 
     return (

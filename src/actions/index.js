@@ -49,3 +49,18 @@ export const settingClickedTrack = (value) => {
     value,
   }
 }
+
+export const trackResizeing = (trackId, startPx) => {
+  return {
+    type: 'TRACK_RESIZING',
+    trackId,
+    startPx,
+  }
+}
+
+export const trackResized = (value) => {
+  return {
+    type: 'TRACK_RESIZED',
+    value,
+  }
+}

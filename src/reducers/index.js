@@ -1,3 +1,10 @@
+const nrTracks = 10;
+const trackWidthById = {};
+
+for (var i = 0 ; i < nrTracks; i++) {
+  trackWidthById[i] = 100/nrTracks;
+}
+
 const initialState = {
   playerRunning: false,
   recording: false,
@@ -5,10 +12,14 @@ const initialState = {
   focusedTrackId: 0,
   recordingsByTrackId: {},
   progressBarDragging: false,
-  topOffset: 150,
+  trackResizingId: -1,
+  trackResizeStartPx: -1,
+  topOffset: 80,
   msPerPixel: 15,
   currentStartRecord: -1,
   mutedTracks: {},
+  trackWidthById: trackWidthById,
+  nrTracks: nrTracks,
 }
 
 export default (state = initialState, action) => {
@@ -65,6 +76,28 @@ export default (state = initialState, action) => {
     case 'PROGRESSBAR_DRAG':
       return Object.assign({}, state, {
         progressBarDragging: action.value,
+      })
+    case 'TRACK_RESIZING':
+      return Object.assign({}, state, {
+        trackResizingId: action.trackId,
+        trackResizeStartPx: action.startPx
+      })
+    case 'TRACK_RESIZED':
+      var sizeDelta = action.value
+      var trackDelta = (sizeDelta / (nrTracks - 1))
+      var trackWidthById = {}
+      for (var key in state.trackWidthById) {
+        var track = state.trackWidthById[key]
+        if (state.trackResizingId != key) {
+          track -= trackDelta
+        } else {
+          track += sizeDelta
+        }
+        trackWidthById[key] = track
+      }
+      //console.log(trackWidthById)
+      return Object.assign({}, state, {
+        trackWidthById: trackWidthById
       })
     default:
       return state
