@@ -271,7 +271,7 @@ class Timer extends Component {
       userSelect: 'none',
       position: 'absolute',
       top: 10,
-      left: 10,
+      left: 30,
       fontSize: 25,
     }
 
@@ -285,6 +285,36 @@ class Timer extends Component {
   }
 
 }
+
+class Timebar extends Component { 
+  constructor(props) {
+    super(props);
+    this.store = props.store
+  };
+
+  timebarFocused = () => {
+    
+  };
+
+  render() {
+    const state = this.store.getState()
+    const style = {
+      position: 'absolute',
+      top: state.topOffset,
+      bottom: '0px',
+      left: 0,
+      width: state.timebarWidth + "px",
+      backgroundColor: "grey",
+      height: '100%',
+      boxSizing: 'border-box',
+    };
+    
+    return (
+      <div style={style} onClick={this.timebarFocused}/>
+    );
+  }
+}
+
 
 class Track extends Component { 
   constructor(props) {
@@ -370,7 +400,7 @@ class Track extends Component {
 
     const trackStyle = {
       position: 'absolute',
-      top: state.topOffset - this.settingsHeight + "px",
+      top: - this.settingsHeight + "px",
       bottom: '0px',
       left: this.props.position + '%',
       width: state.trackWidthById[this.trackId] + '%',
@@ -404,7 +434,6 @@ class Track extends Component {
   }
 }
 
-
 class App extends Component {
   constructor(props) {
     super(props);
@@ -436,19 +465,22 @@ class App extends Component {
       this.store.dispatch(progressBarMove(Math.max(0, state.progressBarOffset - deltaY)))
     }
     if (state.trackResizingId != -1) { 
-      var prevWidth = window.innerWidth * 0.01 * state.trackWidthById[state.trackResizingId]
-      var deltaX = state.trackResizeStartPx - e.clientX 
-      var movePerc = deltaX/window.innerWidth
-      this.store.dispatch(trackResized(movePerc))
+      var currentWidth = state.trackWidthById[state.trackResizingId]
+      
+        var prevWidth = window.innerWidth * 0.01 * currentWidth
+        var deltaX = state.trackResizeStartPx - e.clientX 
+        var movePerc = deltaX/window.innerWidth
+      if (5 < currentWidth || movePerc < 0) {
+        this.store.dispatch(trackResized(-4*movePerc))
+      }
     }
   }
 
   render() {
     const appStyle = {}
     var tracks = []
-    var currentPos = 0
     const state = this.store.getState()
-
+    var currentPos = 0
     for (var i = 0; i < state.nrTracks; i++) {
       tracks.push(<Track 
         store={this.store} 
@@ -458,11 +490,22 @@ class App extends Component {
       currentPos += state.trackWidthById[i]
     }
 
+    var tracskDivStyle = {
+      position: 'absolute',
+      width: 100*(1-state.timebarWidth/window.innerWidth) + '%',
+      height: '100%',
+      top:  state.topOffset + 'px',
+      left: state.timebarWidth + 'px',
+    }
+
     return (
 	   <div className="App" id="app" style={appStyle} >	  
         <Player store={this.store} />
         <Timer store={this.store} />
-        {tracks}
+        <Timebar store={this.store} />
+        <div style={tracskDivStyle}>
+          {tracks}
+        </div>
         <ProgressBar store={this.store} />
 	   </div>
     );

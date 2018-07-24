@@ -1,6 +1,6 @@
+const timebarWidth = 20
 const nrTracks = 10;
 const trackWidthById = {};
-
 for (var i = 0 ; i < nrTracks; i++) {
   trackWidthById[i] = 100/nrTracks;
 }
@@ -20,6 +20,7 @@ const initialState = {
   mutedTracks: {},
   trackWidthById: trackWidthById,
   nrTracks: nrTracks,
+  timebarWidth: timebarWidth,
 }
 
 export default (state = initialState, action) => {
