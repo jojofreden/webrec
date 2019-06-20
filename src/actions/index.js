@@ -64,3 +64,10 @@ export const trackResized = (value) => {
     value,
   }
 }
+
+export const timebarClicked = (value) => {
+  return {
+    type: 'PROGRESSBAR_MOVE',
+    value,
+  }
+}

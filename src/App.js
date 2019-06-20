@@ -1,222 +1,10 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import ReactDOM from 'react-dom';
-import {playProject, pauseProject, stopProject, recordProject, selectTrack, finishRecord, progressBarMove, progressBarDrag, settingClickedTrack, trackResizeing, trackResized} from './actions'
+import {playProject, pauseProject, stopProject, recordProject, selectTrack, finishRecord, progressBarMove, progressBarDrag, settingClickedTrack, trackResizeing, trackResized, timebarClicked} from './actions'
+import Player from './components/player.js'
 
 const colors = ['#4c626e', '#0074D9', '#7FDBFF', '#39CCCC', '#3D9970', '#2ECC40', '#01FF70', '#FFDC00', '#FF851B', '#FF4136']
-
-
-class Recording {
-  constructor(start, end, audio, trackId) {
-    this.start = start
-    this.end = end
-    this.audio = audio
-    this.trackId = trackId
-    var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    var source = audioCtx.createMediaElementSource(audio)
-    var gainNode = audioCtx.createGain();
-    source.connect(gainNode);
-    gainNode.connect(audioCtx.destination);
-    this.gainNode = gainNode
-  }
-
-  mute () {
-    this.gainNode.gain.setValueAtTime(0, 0)
-  }
-
-  unmute () {
-    this.gainNode.gain.setValueAtTime(1, 0)
-  }
-
-  static findRecordingsByTime(trackIds, recordingsByTrackId, time) {
-    var resRecordings = []
-    for (var i = 0; i < trackIds.length; i++) {
-      var recordings = recordingsByTrackId[trackIds[i]]
-      if (recordings) {
-        for (var j = 0; j < recordings.length; j++) {
-          var recording = recordings[j]
-          if (recording.start <= time && recording.end >= time) {
-            resRecordings.push(recording)
-          }
-        }
-      }
-    }
-    return resRecordings
-  }
-}
-
-class Recorder {
-  constructor(store) {
-    this.store = store;
-  };
-
-  startRecording = (stream) => {
-    this.mediaRecorder = new window.MediaRecorder(stream, {})
-    this.mediaRecorder.ondataavailable = e => {
-      this.chunks.push(e.data)
-      const state = this.store.getState()
-      if (!state.recording) {
-        var blob = new window.Blob(this.chunks, {type: 'audio/wav'})
-        this.chunks = []
-        const audioUrl = URL.createObjectURL(blob);
-        const audio = new Audio(audioUrl);
-        var recording = new Recording(
-          state.currentStartRecord, 
-          state.progressBarOffset * state.msPerPixel, 
-          audio,
-          state.focusedTrackId,
-        )
-        this.store.dispatch(finishRecord(recording))
-      }
-    }
-    this.mediaRecorder.start()
-  }
-
-  stop () {
-    this.mediaRecorder.stop()
-  }
-
-  pause () {
-    this.mediaRecorder.pause()
-  }
-
-  resume () {
-    this.mediaRecorder.resume()
-  }
-
-  start () {
-    this.chunks = []
-    navigator.mediaDevices.getUserMedia({audio: true})
-      .then((stream) => this.startRecording(stream))
-  }
-
-  render() {
-    return false;
-  }
-}
-
-class Player extends Component { 
-  constructor(props) {
-    super(props);
-    this.store = props.store;
-    this.recorder = new Recorder(props.store)
-  };
-
-  handlePlayButtonClick = () => {
-    this.store.dispatch(playProject())
-    const state = this.store.getState()
-    var currentMsPostition = state.msPerPixel * state.progressBarOffset
-
-    var trackIds = []
-
-    for (var i = 0; i < state.nrTracks; i++) {
-      trackIds.push(i)
-    }
-
-    var recordings = Recording.findRecordingsByTime(trackIds, state.recordingsByTrackId, currentMsPostition)
-    if (recordings) {
-      var currentMsPostition = state.msPerPixel * state.progressBarOffset
-      for (var i = 0; i < recordings.length; i++) {
-        const recording = recordings[i]
-        const audio = recording.audio
-        audio.currentTime = currentMsPostition/1000
-
-        if (state.mutedTracks[recording.trackId]) {
-          recording.mute()
-        } else {
-          recording.unmute()
-        }
-        audio.play()
-      }
-    }
-  };
-
-  handlePauseButtonClick = () => {
-    if (this.store.getState().recording) {
-      this.recorder.pause()
-    }
-
-    this.store.dispatch(pauseProject())
-  };
-
-  handleRecordStartButtonClick = () => {
-    this.store.dispatch(recordProject())
-    this.recorder.start()
-  };
-
-  handleStopButtonClick = () => {
-    if (this.store.getState().recording) {
-      this.recorder.stop()
-    }
-    this.store.dispatch(stopProject())
-  };
-
-  render() {
-    const playerStyle = {
-      position: 'absolute',
-      top: '10px',
-      left: '120px',
-    };
-
-    const playButtonStyle = {
-      top: '10px',
-      left: '20%',
-      outline: 'none',
-      borderStyle: 'solid',
-      boxSizing: 'border-box',
-      borderWidth: '10px 0px 10px 20px',
-      borderColor: 'transparent transparent transparent #202020',
-    };
-
-    const pauseButtonStyle = {
-      outline: 'none',
-      borderStyle: 'solid',
-      height: '20px',
-      borderWidth: '0px 9px 0px 9px',
-      padding: '2px',
-      marginRight: '12px',
-      marginTop: '5px',
-      borderColor: '#202020',
-    };
-
-    const recordButtonStyle = {
-      outline: 'none',
-      position: 'absolute',
-      height: '22px',
-      width: '22px',
-      backgroundColor: '#202020',
-      borderRadius: '50%',
-      marginTop: '4px',
-    };
-
-    const recordingButtonStyle = Object.assign({}, recordButtonStyle, {
-        backgroundColor: '#FF0000',
-      })
-
-    var playPauseStyle = playButtonStyle
-    var playPauseHandler = this.handlePlayButtonClick
-
-    if (this.store.getState().playerRunning) {
-      playPauseStyle = pauseButtonStyle
-      playPauseHandler = this.handlePauseButtonClick
-    }
-
-    var recordHandler = this.handleRecordStartButtonClick
-    var recordStyle = recordButtonStyle
-
-    if (this.store.getState().recording) {
-       recordHandler = this.handleStopButtonClick
-       recordStyle = recordingButtonStyle
-    } 
-
-    return (
-      <div style={playerStyle}>
-        <button style={playPauseStyle} onClick={playPauseHandler} />
-        <button style={recordStyle} onClick={recordHandler} />
-      </div>
-    );
-  }
-}
 
 class ProgressBar extends Component {
   constructor(props) {
@@ -228,21 +16,21 @@ class ProgressBar extends Component {
     this.store.dispatch(progressBarDrag(true))
   };
 
-  render() { 
+  render() {
     const progressBarStyle = {
       position: 'absolute',
-      top: this.store.getState().topOffset + this.store.getState().progressBarOffset + 'px', 
+      top: this.store.getState().topOffset + this.store.getState().progressBarOffset + 'px',
       left: '0px',
       width: '100%',
-      height: '4px',
+      height: '3px',
       backgroundColor: 'black',
       zIndex: '2',
       cursor: 'ns-resize',
     }
 
-    return <div 
-              style={progressBarStyle} 
-              onMouseDown={this.mouseDown} 
+    return <div
+              style={progressBarStyle}
+              onMouseDown={this.mouseDown}
             />
   };
 
@@ -260,7 +48,7 @@ class ProgressBar extends Component {
   };
 }
 
-class Timer extends Component { 
+class Timer extends Component {
   constructor(props) {
     super(props);
     this.store = props.store;
@@ -286,14 +74,15 @@ class Timer extends Component {
 
 }
 
-class Timebar extends Component { 
+class Timebar extends Component {
   constructor(props) {
     super(props);
     this.store = props.store
   };
 
-  timebarFocused = () => {
-    
+  timebarFocused = (e) => {
+    const state = this.store.getState()
+    this.store.dispatch(timebarClicked(e.clientY - state.topOffset))
   };
 
   render() {
@@ -304,19 +93,51 @@ class Timebar extends Component {
       bottom: '0px',
       left: 0,
       width: state.timebarWidth + "px",
-      backgroundColor: "grey",
+      background: "grey",
       height: '100%',
       boxSizing: 'border-box',
+      zIndex: 0,
     };
-    
+
+    var timeMarkers = []
+    var currentPos = 0
+    for (var i = 0; i < window.innerHeight/(1000/state.msPerPixel); i++) {
+      timeMarkers.push(<div style={{
+        position: 'absolute',
+        top: currentPos + 'px',
+        height: '2px',
+        width: '100%',
+        backgroundColor: 'black',
+        zIndex: 1,
+      }}
+      />);
+      currentPos += 1000/state.msPerPixel
+    }
+
+    var currentPos = 0
+    for (var i = 0; i < window.innerHeight/(100/state.msPerPixel); i++) {
+      timeMarkers.push(<div style={{
+        position: 'absolute',
+        top: currentPos + 'px',
+        height: '1px',
+        width: '100%',
+        backgroundColor: 'black',
+        zIndex: 1,
+      }}
+      />);
+      currentPos += 100/state.msPerPixel
+    }
+
     return (
-      <div style={style} onClick={this.timebarFocused}/>
+      <div style={style} onClick={this.timebarFocused}>
+        {timeMarkers}
+      </div>
     );
   }
 }
 
 
-class Track extends Component { 
+class Track extends Component {
   constructor(props) {
     super(props);
     this.props = props
@@ -355,7 +176,7 @@ class Track extends Component {
         top: ((recording.start/state.msPerPixel) + this.settingsHeight | 0),
         height: (((recording.end-recording.start)/state.msPerPixel) | 0)
       })
-      
+
       recordedSections.push(<div style={cRecordedSectionStyle} />)
     }
     return recordedSections
@@ -367,7 +188,7 @@ class Track extends Component {
       top: ((state.currentStartRecord/state.msPerPixel) + this.settingsHeight),
       height: ((state.progressBarOffset - (state.currentStartRecord/state.msPerPixel))),
     })
-      
+
     return <div style={cRecordedSectionStyle} />
   }
 
@@ -422,11 +243,11 @@ class Track extends Component {
       boxSizing: 'border-box',
       zIndex: zIndex,
     };
-    
+
     return (
       <div style={trackStyle} onClick={this.trackFocused} onMouseDown={this.mouseDown}>
-        <div 
-            style={settingsStyle} 
+        <div
+            style={settingsStyle}
             onClick={this.settingsClicked} />
         {recordingSections}
       </div>
@@ -445,12 +266,12 @@ class App extends Component {
     window.addEventListener("mousemove", this.mouseMoveApp)
   }
 
-  mouseUpApp = (e) => { 
+  mouseUpApp = (e) => {
     const state = this.store.getState()
     if (state.progressBarDragging) {
       this.store.dispatch(progressBarDrag(false))
     }
-    if (state.trackResizingId != -1) { 
+    if (state.trackResizingId != -1) {
       this.store.dispatch(trackResizeing(-1))
     }
   };
@@ -458,39 +279,39 @@ class App extends Component {
   mouseMoveApp = (e) => {
     const state = this.store.getState()
 
-    if (state.progressBarDragging) { 
+    if (state.progressBarDragging) {
       var prevY = state.topOffset + state.progressBarOffset
       var deltaY = prevY - e.clientY
 
       this.store.dispatch(progressBarMove(Math.max(0, state.progressBarOffset - deltaY)))
     }
-    if (state.trackResizingId != -1) { 
+    if (state.trackResizingId != -1) {
       var currentWidth = state.trackWidthById[state.trackResizingId]
-      
+
         var prevWidth = window.innerWidth * 0.01 * currentWidth
-        var deltaX = state.trackResizeStartPx - e.clientX 
+        var deltaX = state.trackResizeStartPx - e.clientX
         var movePerc = deltaX/window.innerWidth
       if (5 < currentWidth || movePerc < 0) {
         this.store.dispatch(trackResized(-4*movePerc))
       }
     }
   }
-
+a
   render() {
     const appStyle = {}
     var tracks = []
     const state = this.store.getState()
     var currentPos = 0
     for (var i = 0; i < state.nrTracks; i++) {
-      tracks.push(<Track 
-        store={this.store} 
-        trackId={i} 
-        position={currentPos} 
+      tracks.push(<Track
+        store={this.store}
+        trackId={i}
+        position={currentPos}
         colorNumber={i%colors.length}/>);
       currentPos += state.trackWidthById[i]
     }
 
-    var tracskDivStyle = {
+    var trackDivStyle = {
       position: 'absolute',
       width: 100*(1-state.timebarWidth/window.innerWidth) + '%',
       height: '100%',
@@ -499,11 +320,11 @@ class App extends Component {
     }
 
     return (
-	   <div className="App" id="app" style={appStyle} >	  
+	   <div className="App" id="app" style={appStyle} >
         <Player store={this.store} />
         <Timer store={this.store} />
         <Timebar store={this.store} />
-        <div style={tracskDivStyle}>
+        <div style={trackDivStyle}>
           {tracks}
         </div>
         <ProgressBar store={this.store} />

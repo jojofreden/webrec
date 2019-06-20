@@ -24,44 +24,38 @@ const initialState = {
 }
 
 export default (state = initialState, action) => {
+  console.log(action.type)
   switch (action.type) {
     case 'PLAY_PROJECT':
-      console.log("Project playing")
       return Object.assign({}, state, {
         playerRunning: true,
       })
     case 'PAUSE_PROJECT':
-      console.log("Project paused")
       return Object.assign({}, state, {
         playerRunning: false,
         recording: false,
       })
     case 'STOP_PROJECT':
-      console.log("Project stopped")
       return Object.assign({}, state, {
         playerRunning: false,
         recording: false,
       })
     case 'RECORD_PROJECT':
-      console.log("Project recording")
       return Object.assign({}, state, {
         recording: true,
         playerRunning: true,
         currentStartRecord: state.progressBarOffset * state.msPerPixel,
       })
     case 'SELECT_TRACK':
-      console.log("Track selected")
       return Object.assign({}, state, {
         focusedTrackId: action.value,
       })
     case 'SETTING_CLICKED':
-      console.log("Track setting clicked")
       state.mutedTracks[action.value] = !state.mutedTracks[action.value]
       return Object.assign({}, state, {
         mutedTracks: state.mutedTracks
       })
     case 'FINISH_RECORD':
-      console.log("Recording finished")
       const recordingsByTrackId = state.recordingsByTrackId
       if (recordingsByTrackId[state.focusedTrackId] == null) {
         recordingsByTrackId[state.focusedTrackId] = []
@@ -96,7 +90,6 @@ export default (state = initialState, action) => {
         }
         trackWidthById[key] = track
       }
-      //console.log(trackWidthById)
       return Object.assign({}, state, {
         trackWidthById: trackWidthById
       })
