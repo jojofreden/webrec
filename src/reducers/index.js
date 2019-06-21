@@ -21,6 +21,7 @@ const initialState = {
   trackWidthById: trackWidthById,
   nrTracks: nrTracks,
   timebarWidth: timebarWidth,
+  trackSettingsHeight: 20,
 }
 
 export default (state = initialState, action) => {
