@@ -22,6 +22,7 @@ const initialState = {
   nrTracks: nrTracks,
   timebarWidth: timebarWidth,
   trackSettingsHeight: 20,
+  focusedRecordingId: null,
 }
 
 export default (state = initialState, action) => {
@@ -77,6 +78,10 @@ export default (state = initialState, action) => {
       return Object.assign({}, state, {
         trackResizingId: action.trackId,
         trackResizeStartPx: action.startPx
+      })
+    case 'RECORDING_CLICKED':
+      return Object.assign({}, state, {
+        focusedRecordingId: action.value
       })
     case 'TRACK_RESIZED':
       var sizeDelta = action.value

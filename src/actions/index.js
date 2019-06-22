@@ -71,3 +71,10 @@ export const timebarClicked = (value) => {
     value,
   }
 }
+
+export const recordingClicked = (value) => {
+  return {
+    type: 'RECORDING_CLICKED',
+    value,
+  }
+}
