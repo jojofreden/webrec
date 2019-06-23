@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import ReactDOM from 'react-dom';
-import {playProject, pauseProject, stopProject, recordProject, selectTrack, finishRecord, progressBarMove, progressBarDrag, settingClickedTrack, trackResizeing, trackResized, timebarClicked} from './actions'
+import {deletePressed, playProject, pauseProject, stopProject, recordProject, selectTrack, finishRecord, progressBarMove, progressBarDrag, settingClickedTrack, trackResizeing, trackResized, timebarClicked} from './actions'
 import Player from './components/player.js'
 import ProgressBar from './components/progressbar.js'
 import Track from './components/track.js'
@@ -18,7 +18,15 @@ class App extends Component {
   componentDidMount() {
     window.addEventListener("mouseup", this.mouseUpApp)
     window.addEventListener("mousemove", this.mouseMoveApp)
+    window.addEventListener("keydown", this.keyDownApp)
   }
+
+  keyDownApp = (e) => {
+    const state = this.store.getState()
+    if (e.keyCode === 8) {
+      this.store.dispatch(deletePressed())
+    }
+  };
 
   mouseUpApp = (e) => {
     const state = this.store.getState()

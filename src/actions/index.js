@@ -78,3 +78,10 @@ export const recordingClicked = (value) => {
     value,
   }
 }
+
+export const deletePressed = (value) => {
+  return {
+    type: 'DELETE_PRESSED',
+    value,
+  }
+}

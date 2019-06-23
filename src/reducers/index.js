@@ -83,6 +83,20 @@ export default (state = initialState, action) => {
       return Object.assign({}, state, {
         focusedRecordingId: action.value
       })
+    case 'DELETE_PRESSED':
+      if (state.focusedRecordingId != null) {
+        for (var track in state.recordingsByTrackId) {
+          var recordings = state.recordingsByTrackId[track]
+          for (var i = 0; i < recordings.length; i++) {
+            if (recordings[i].rec_id === state.focusedRecordingId) {
+              recordings.splice(i, 1)
+              break
+            }
+          }
+        }
+      }
+      return state
+
     case 'TRACK_RESIZED':
       var sizeDelta = action.value
       var trackDelta = (sizeDelta / (nrTracks - 1))
