@@ -14,7 +14,7 @@ const initialState = {
   progressBarDragging: false,
   trackResizingId: -1,
   trackResizeStartPx: -1,
-  topOffset: 80,
+  topOffset: 100,
   msPerPixel: 15,
   currentStartRecord: -1,
   mutedTracks: {},
